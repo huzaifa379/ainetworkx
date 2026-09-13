@@ -14,11 +14,9 @@
 //   SUPABASE_URL          https://<ref>.supabase.co
 //   SUPABASE_SERVICE_KEY  the service_role / secret key (server-side only)
 //   HASH_SALT             any long random string (optional but recommended)
-//   APK_VERSION           e.g. 1.0.7 (optional, only recorded alongside the row)
-
 const crypto = require('crypto');
 
-const APK_PATH = '/NetX-Downloader.apk';
+const APK_PATH = 'https://github.com/huzaifa379/ainetworkx/releases/download/v1.0.7/NetX-Downloader.apk';
 
 // A warm insert measured 0.40–0.49 s; the first one after an idle period ran
 // past 1.2 s and was cut off even though the row had already been written. The

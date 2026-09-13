@@ -15,6 +15,6 @@ window.VD = {
   minAndroid: "7.0",
   minApi: 24,
   updated: "13 September 2026",
-  apkUrl: "/download",
-  sha256: "" // fill in if you want the checksum shown
+  apkUrl: "https://github.com/huzaifa379/ainetworkx/releases/download/v1.0.7/NetX-Downloader.apk",
+  sha256: "579d72bfdf45fe064c637a3977c39..."
 };
