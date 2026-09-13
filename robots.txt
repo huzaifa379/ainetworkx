@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Disallow: /VidDownload.apk
+Disallow: /download
+Disallow: /api/
+
+# The download counter dashboard is not listed here on purpose. A Disallow line
+# is a public file that names the path it hides, and the page already carries
+# <meta name="robots" content="noindex, nofollow">, which keeps it out of search
+# results more reliably — a crawler has to be allowed to fetch a page in order
+# to read the noindex on it.
+
+Sitemap: https://vid-download-iv.vercel.app/sitemap.xml

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Downloads — NetX Downloader</title>
+<link rel="icon" href="assets/favicon.png" type="image/png">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body { background: var(--bg); color: var(--ink); font-family: var(--ff); margin: 0; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 24px 18px 60px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 22px; }
+  .gate { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+  input, select, button { font: inherit; border-radius: 10px; padding: 10px 12px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  button { background: var(--orange); border-color: transparent; color: #fff; font-weight: 700; cursor: pointer; }
+  .cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+  .card .n { font-size: 1.9rem; font-weight: 800; letter-spacing: -.02em; }
+  .card .l { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; margin-top: 4px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 16px; margin-top: 18px; }
+  .panel h2 { font-size: .95rem; margin: 0 0 12px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .08em; }
+  /* The site stylesheet gives every table a 460px minimum (it is meant for the
+     wide comparison table on the home page, which lives in a .table-scroll).
+     These tables are two and three narrow columns, so that minimum only pushed
+     the counts off the right edge of a phone. */
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; min-width: 0; }
+  td, th { text-align: left; padding: 7px 4px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted-2); font-weight: 600; font-size: .78rem; }
+  td:last-child, th:last-child { text-align: right; }
+  .msg { color: var(--muted); font-size: .9rem; }
+  .err { color: #ff6b6b; font-size: .9rem; }
+  /* The latest-downloads table has seven columns, which no phone can fit. It
+     alone gets a horizontal scroller; the small summary tables stay fluid. */
+  .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .scroll-x table { min-width: 640px; }
+  .ip { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem; }
+  .two { display: grid; gap: 18px; grid-template-columns: 1fr; }
+  .two > * { min-width: 0; }
+  @media (min-width: 760px) { .two { grid-template-columns: 1fr 1fr; } }
+  svg { width: 100%; height: 140px; display: block; }
+  svg rect { fill: var(--orange); }
+</style>
+<script>
+  (function () { var t = localStorage.getItem('vd-theme');
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); })();
+</script>
+</head>
+<body>
+<div class="wrap">
+  <h1>Download counter</h1>
+  <p class="sub">NetX Downloader · every press of the download button, counted server-side. One row per device per day.</p>
+
+  <form class="gate" id="gate">
+    <input id="key" type="password" placeholder="Dashboard key" autocomplete="current-password" size="26">
+    <select id="days">
+      <option value="7">last 7 days</option>
+      <option value="30" selected>last 30 days</option>
+      <option value="90">last 90 days</option>
+    </select>
+    <button type="submit">Show</button>
+    <button type="button" id="forget" style="background:var(--panel-2);color:var(--ink);border-color:var(--line)">Forget key</button>
+  </form>
+
+  <div id="out"><p class="msg">Enter the dashboard key to load the numbers.</p></div>
+</div>
+
+<script>
+var out = document.getElementById('out');
+var keyEl = document.getElementById('key');
+var daysEl = document.getElementById('days');
+var saved = localStorage.getItem('vd-stats-key');
+if (saved) { keyEl.value = saved; load(); }
+
+document.getElementById('gate').addEventListener('submit', function (e) {
+  e.preventDefault();
+  localStorage.setItem('vd-stats-key', keyEl.value);
+  load();
+});
+document.getElementById('forget').addEventListener('click', function () {
+  localStorage.removeItem('vd-stats-key'); keyEl.value = '';
+  out.innerHTML = '<p class="msg">Key forgotten.</p>';
+});
+
+function esc(s) { return String(s == null ? '' : s).replace(/[<>&"]/g, function (c) {
+  return ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c]; }); }
+function n(v) { return (v == null ? 0 : v).toLocaleString(); }
+
+function load() {
+  out.innerHTML = '<p class="msg">Loading…</p>';
+  // The key travels as a header, never in the URL: query strings end up in
+  // browser history, in Referer headers and in the host's request logs.
+  fetch('/api/stats?days=' + encodeURIComponent(daysEl.value),
+        { headers: { 'x-stats-key': keyEl.value }, cache: 'no-store' })
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, code: r.status, j: j }; }); })
+    .then(function (res) {
+      if (!res.ok) {
+        var hint = res.code === 401 ? 'Wrong key.'
+          : res.j && res.j.error === 'not-configured'
+            ? 'The server is missing its Supabase environment variables.'
+            : 'Error ' + res.code + ' — ' + esc(res.j && (res.j.detail || res.j.error));
+        out.innerHTML = '<p class="err">' + hint + '</p>';
+        return;
+      }
+      render(res.j);
+    })
+    .catch(function () { out.innerHTML = '<p class="err">Could not reach /api/stats.</p>'; });
+}
+
+function cards(d) {
+  // `taps` and the browser breakdowns only exist once the updated schema.sql has
+  // been run; until then fall back so the page still renders the old numbers.
+  var taps = d.taps == null ? d.total : d.taps;
+  var items = [
+    [n(d.total), 'downloads · devices'], [n(taps), 'taps on the button'],
+    [n(d.today), 'devices today'], [n(d.last_7d), 'last 7 days'],
+    [n(d.last_30d), 'last 30 days'], [n(d.activations), 'app first-opens'],
+  ];
+  return '<div class="cards">' + items.map(function (i) {
+    return '<div class="card"><div class="n">' + i[0] + '</div><div class="l">' + i[1] + '</div></div>';
+  }).join('') + '</div>';
+}
+
+function chart(rows) {
+  if (!rows || !rows.length) return '<p class="msg">No downloads recorded yet.</p>';
+  var max = Math.max.apply(null, rows.map(function (r) { return r.n; }));
+  var w = 1000, h = 130, bw = Math.max(2, Math.floor(w / rows.length) - 2);
+  var bars = rows.map(function (r, i) {
+    var bh = Math.max(2, Math.round((r.n / max) * (h - 18)));
+    return '<rect x="' + (i * (bw + 2)) + '" y="' + (h - bh) + '" width="' + bw + '" height="' + bh +
+      '" rx="2"><title>' + esc(r.d) + ': ' + r.n + '</title></rect>';
+  }).join('');
+  return '<svg viewBox="0 0 ' + (rows.length * (bw + 2)) + ' ' + h + '" preserveAspectRatio="none">' + bars +
+    '</svg><p class="msg">' + esc(rows[0].d) + ' → ' + esc(rows[rows.length - 1].d) +
+    ' · peak ' + max + ' in a day</p>';
+}
+
+function table(rows, head, keyName) {
+  if (!rows || !rows.length) return '<p class="msg">Nothing yet.</p>';
+  return '<table><tr><th>' + head + '</th><th>devices</th></tr>' + rows.map(function (r) {
+    return '<tr><td>' + esc(r[keyName]) + '</td><td>' + n(r.n) + '</td></tr>';
+  }).join('') + '</table>';
+}
+
+function place(r) {
+  var bits = [r.city, r.region, r.country].filter(function (v) { return v; });
+  return bits.length ? bits.join(', ') : '??';
+}
+function version(name, ver) {
+  if (!name) return '—';
+  return esc(name) + (ver ? ' ' + esc(ver) : '');
+}
+
+function recent(rows) {
+  if (!rows || !rows.length) return '<p class="msg">Nothing yet.</p>';
+  return '<div class="scroll-x"><table>' +
+    '<tr><th>first tap (UTC)</th><th>where</th><th>device</th><th>browser</th>' +
+    '<th>OS</th><th>IP</th><th>taps</th></tr>' + rows.map(function (r) {
+      return '<tr><td>' + esc(String(r.created_at).replace('T', ' ').slice(0, 16)) + '</td>' +
+        '<td>' + esc(place(r)) + '</td>' +
+        '<td>' + esc(r.device || 'other') + '</td>' +
+        '<td>' + version(r.browser, r.browser_version) + '</td>' +
+        '<td>' + version(r.os, r.os_version) + '</td>' +
+        '<td class="ip">' + esc(r.ip || '—') + '</td>' +
+        '<td>' + n(r.hits == null ? 1 : r.hits) + '</td></tr>';
+    }).join('') + '</table></div>';
+}
+
+function render(d) {
+  var browsers = d.by_browser
+    ? '<div class="two"><div class="panel"><h2>Browser</h2>' + table(d.by_browser, 'browser', 'browser') +
+      '</div><div class="panel"><h2>Operating system</h2>' + table(d.by_os, 'os', 'os') + '</div></div>'
+    : '';
+  out.innerHTML = cards(d) +
+    '<div class="panel"><h2>Devices per day</h2>' + chart(d.by_day) + '</div>' +
+    '<div class="two"><div class="panel"><h2>Top countries</h2>' + table(d.by_country, 'country', 'country') +
+    '</div><div class="panel"><h2>Device</h2>' + table(d.by_device, 'device', 'device') + '</div></div>' +
+    browsers +
+    '<div class="panel"><h2>Latest downloads</h2>' + recent(d.recent) + '</div>' +
+    '<p class="msg">Generated ' + esc(String(d.generated_at).replace('T', ' ').slice(0, 19)) +
+    ' UTC · one row per device per day; “taps” counts every press.</p>';
+}
+</script>
+</body>
+</html>
